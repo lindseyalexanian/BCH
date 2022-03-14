@@ -1,0 +1,152 @@
+---
+title: "R Notebook Chr Analysis"
+author: "Lindsey Alexanian"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+filtered_data <- read.table(file = 'analysis_dataRF.txt', sep = '\t', header = TRUE)
+
+chromosomes <- unique(filtered_data$Rname)
+print(chromosomes)
+
+
+install.packages("data.table")
+library(data.table)
+
+fwrite(list(chromosomes), file = "chr_outfile.tsv")
+
+
+```
+
+# Pad function, all credit to Kmisc
+# package: https://github.com/kevinushey/Kmisc.git
+```{r}
+##' Pad an Object with NAs
+##' 
+##' This function pads an \R object (list, data.frame, matrix, atomic vector)
+##' with \code{NA}s. For matrices, lists and data.frames, this occurs by extending
+##' each (column) vector in the object.
+##' @param x An \R object (list, data.frame, matrix, atomic vector).
+##' @param n The final length of each object.
+##' @export
+pad <- function(x, n) {
+  
+  if (is.data.frame(x)) {
+    
+    nrow <- nrow(x)
+    attr(x, "row.names") <- 1:n
+    for( i in 1:ncol(x) ) {
+      x[[i]] <- c( x[[i]], rep(NA, times=n-nrow) )
+    }
+    return(x)
+    
+  } else if (is.list(x)) {
+    if (missing(n)) {
+      max_len <- max( sapply( x, length ) )
+      return( lapply(x, function(xx) {
+        return( c(xx, rep(NA, times=max_len-length(xx))) )
+      }))
+    } else {
+      return( lapply(x, function(xx) {
+        if (n > length(xx)) {
+          return( c(xx, rep(NA, times=n-length(xx))) )
+        } else {
+          return(xx)
+        }
+      }))
+    }
+  } else if (is.matrix(x)) {
+    
+    return( rbind( x, matrix(NA, nrow=n-nrow(x), ncol=ncol(x)) ) )
+    
+  } else {
+    
+    return( c( x, rep(NA, n-length(x)) ) )
+    
+  }
+  
+}
+
+
+```
+
+# Create categorical vs numerical data
+```{r}
+# create data frame
+#df_by_chromosome <- data.frame(matrix(ncol=length(chromosomes), nrow=0,  dimnames=list(NULL, chromosomes)))
+
+
+length_junction_counts <- c()
+# get junction counts
+for (chr in chromosomes) {
+  junctions <- c()
+  for (item in 1:nrow(filtered_data)) {
+    if (filtered_data[item, 1] == chr) {
+      junctions <- append(junctions, filtered_data[item, 2])
+      
+    }
+  }
+  length_junction_counts <- append(length_junction_counts, length(junctions))
+}
+
+# create data frame for chromosomal data
+df_by_chromosome <- data.frame(matrix(ncol=0, nrow=max(length_junction_counts)))
+
+# populate the df
+for (chr in chromosomes) {
+  junctions <- c()
+  for (item in 1:nrow(filtered_data)) {
+    if (filtered_data[item, 1] == chr) {
+      junctions <- append(junctions, filtered_data[item, 2])
+      
+    }
+  }
+  junctions <- pad(junctions, max(length_junction_counts))
+  
+  df_by_chromosome <- cbind(df_by_chromosome, junctions)
+}
+
+# change col names
+colnames(df_by_chromosome) <- chromosomes
+
+
+```
+
+```{r}
+install.packages("ggplot2")
+library(ggplot2)
+# Basic stripchart
+
+install.packages("plotly")
+library(plotly) 
+
+
+install.packages("dplyr")
+library(dplyr)
+
+freq_df <- list()
+for (col in 1:ncol(df_by_chromosome)) {
+  q <- as.data.frame(table(df_by_chromosome[, col]))
+  
+  freq_df <- append(freq_df, q)
+  
+}
+
+# function for evens
+evens <- function(x) subset(x, x %% 2 == 0)
+odds <- function(x) subset(x, x %% 2 != 0)
+
+# just the evens
+to_test <- evens(1:50)
+just_odds <- odds(1:50)
+
+# make a boxplot to show outliers for each chromosome
+for (i in to_test) {
+  boxplot(freq_df[i])
+  
+}
+
+```
