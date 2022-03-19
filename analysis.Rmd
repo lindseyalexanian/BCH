@@ -283,3 +283,22 @@ indices_list[2]
 z_score_df[651, 20]
 
 ```
+
+# histograms
+
+```{r}
+# make histogram, and more boxplots! This gives a better visual representation of the outliers
+
+for (col in 1:ncol(z_score_df)) {
+  if (!is.na(z_score_df[1,col])) {
+    hist(z_score_df[,col],
+    main="Z-Scores",
+    xlab=colnames(z_score_df)[col],
+    col="magenta", ylim=c(0,70),
+    freq=TRUE)
+    
+    boxplot(z_score_df[,col])
+  }
+}
+
+```
