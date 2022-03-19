@@ -150,3 +150,136 @@ for (i in to_test) {
 }
 
 ```
+
+# Find and output the outliers
+```{r}
+# find the outliers!
+
+# create a df for just the frequencies
+frequencies_only_df <- data.frame(nrow = 6402)
+for (i in to_test) {
+  new_col <- unlist(freq_df[i])
+  # pad w/ NA
+  new_col_pad <- pad(new_col, 6402)
+  # print(length(new_col_pad))
+  frequencies_only_df <- cbind(frequencies_only_df, new_col_pad)
+  new_col <- c()
+}
+
+# remove extra column
+frequencies_only_df <- frequencies_only_df[-1]
+
+# change column names to match chromosome number
+colnames(frequencies_only_df) <- colnames(df_by_chromosome)
+rownames(frequencies_only_df) <- c(1:nrow(frequencies_only_df))
+
+
+# create a df for just the chromosome break points
+len_vector <- c()
+for (i in just_odds) {
+  len <- length(unlist(freq_df[i]))
+  len_vector <- append(len_vector, len)
+}
+
+
+# loop through frequencies
+z_score_df <- as.data.frame(matrix(nrow=6402))
+for (col in 1:ncol(frequencies_only_df)) {
+  # find mean
+  mean_counts <- mean(na.omit(frequencies_only_df[,col]))
+  #print(mean_counts)
+  # find standard dev
+  sd_counts <- sd(na.omit(frequencies_only_df[,col]))
+  #print(sd_counts)
+  # find z-score
+  z_score_vector <- c()
+  for (i in frequencies_only_df[,col]) {
+    if (is.na(i)) {
+      z_score <- NA
+    } else {
+      z_score <- abs((i - mean_counts)/sd_counts)
+    }
+    z_score_vector <- append(z_score_vector, z_score)
+    
+  }
+  #print(length(z_score_vector))
+  z_score_df <- cbind(z_score_df, z_score_vector)
+}
+
+# remove extra column
+z_score_df <- z_score_df[-1]
+
+# adjust column names
+colnames(z_score_df) <- colnames(df_by_chromosome)
+
+# get the indices of the outliers
+# I have defined an outlier as anything with a standard deviation higher than 3 (by 68, 95, 99.7 rule for normality)
+
+
+# adjust names in list for parsing later
+names(freq_df)[odds(1:50)] <- colnames(df_by_chromosome)
+
+# initialize list for outlier indices
+indices_list <- list()
+# chromosome names for chromosomes that have outliers
+chr_names <- c()
+for (col in 1:ncol(z_score_df)) {
+  
+  # find outliers
+  indices <- which(z_score_df[,col] > 3)
+  index_vec <- c(indices)
+  vector_to_store_index <- c()
+  print(colnames(z_score_df)[col])
+  # add indices to their own vector
+  for (item in index_vec) {
+    print(item)
+    vector_to_store_index <- append(vector_to_store_index, item)
+  }
+  # add to df
+  index_df <- as.data.frame(vector_to_store_index)
+  # count the chromosome if it has outliers
+  if (length(vector_to_store_index > 0)) {
+    #colnames(index_df) <- colnames(z_score_df)[col]
+    chr_names <- append(chr_names, colnames(z_score_df)[col])
+  }
+  # append the indices to a list
+  indices_list <- append(indices_list, index_df)
+}
+
+# change list names to correspond w/ chromosome numbers
+names(indices_list) <- chr_names
+
+# open a file
+filename <- file("answer_output.txt", "w")
+
+# loop through frequency indices
+for (i in 1:length(indices_list)) {
+  chrom_name <- names(indices_list[i])
+  col_num_z <- which(colnames(z_score_df)==chrom_name)
+  print(chrom_name)
+  writeLines(chrom_name, con = filename)
+  for (out in (indices_list[i])) {
+    for (each in out){
+      print(each)
+      # get z score
+      z <- z_score_df[each, col_num_z]
+      print(z)
+      writeLines(as.character(freq_df[[chrom_name]][[each]]), con=filename, sep="\t")
+      writeLines(as.character(z), con=filename)
+    }
+    # newline between chromosomes, just for formatting purposes
+    writeLines("\n", con=filename)
+  }
+}
+
+close(filename)
+
+for (col in odds(1:length(freq_df))) {
+  print(col)
+}
+
+indices_list[2]
+
+z_score_df[651, 20]
+
+```
